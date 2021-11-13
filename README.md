@@ -24,7 +24,7 @@ make all tree && make test
 ```
 
 Presentations:
-- [Version.1](https://docs.google.com/presentation/d/1H2mXxWfIWzL6PnOEkNwOqWe97G-Puh7EYUSbl6d6aRY/edit?usp=sharing)
+- ![Version.1](https://docs.google.com/presentation/d/1H2mXxWfIWzL6PnOEkNwOqWe97G-Puh7EYUSbl6d6aRY/edit?usp=sharing)
 
 Demos:
-- [media/Version.1.mp4]
+- ![Version.1](media/Version.1.mp4)
