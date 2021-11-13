@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "kernel.h": "c",
+        "ili9341.h": "c",
+        "user_api.h": "c",
+        "fonts.h": "c",
+        "spi.h": "c"
+    }
+}
