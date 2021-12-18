@@ -55,9 +55,42 @@ static ssize_t data_write(struct file *file, const char *buf, size_t count,
 			  loff_t *ppos);
 static struct cdev hcdev;
 static struct class *devclass;
+
+static int rpi_open(struct inode *inodep, struct file *filep)
+{                                                            
+	int ret = 0;                                         
+	return ret;                                          
+}                                                            
+
+static int rpi_mmap(struct file *filp, struct vm_area_struct *vma)                            
+{                                                                                             
+	int ret = 0;                                                                          
+	struct page *page = NULL;                                                             
+	unsigned long size = (unsigned long)(vma->vm_end - vma->vm_start);                    
+
+	pr_info("mmap size: %lu | %u\n", size, FB_PAGES*4096);                               
+
+	if (size > FB_PAGES*4096) {                                                           
+		ret = -EINVAL;                                                                
+		goto out;                                                                     
+	}                                                                                     
+
+	page = virt_to_page((unsigned long)frame.buffer + (vma->vm_pgoff << PAGE_SHIFT));     
+	ret = remap_pfn_range(vma, vma->vm_start, page_to_pfn(page), size, vma->vm_page_prot);
+	if (ret != 0) {                                                                       
+		goto out;                                                                     
+	}                                                                                     
+out:                                                                                          
+	return ret;                                                                           
+}                                                                                             
+
+
+
 static const struct file_operations dev_fops = {
 	.owner = THIS_MODULE,
 	.write = data_write,
+	.mmap = rpi_mmap, 
+	.open = rpi_open, 
 };
 
 int dev_init(void)
@@ -82,7 +115,7 @@ int dev_init(void)
 	dev = MKDEV(major, SINGLEDEVICE);
 	device_create(devclass, NULL, dev, NULL, "%s", DEVNAME);
 	pr_info("======== device installed %d:[%d-%d] ===========\n",
-		MAJOR(dev), SINGLEDEVICE, MINOR(dev));
+			MAJOR(dev), SINGLEDEVICE, MINOR(dev));
 end:
 	return ret;
 }
@@ -127,8 +160,8 @@ void rpi_lcd_fast_update(void)
 	size_t row;
 	for (row = curw.y0; row <= curw.y1; ++row) {
 		memcpy(frame.unraveled + (row - curw.y0) * curw.w,
-		       frame.buffer + row * frame.n_cols + curw.x0,
-		       curw.w * PIXEL_SIZE);
+				frame.buffer + row * frame.n_cols + curw.x0,
+				curw.w * PIXEL_SIZE);
 	}
 
 	pr_info("w: %u, h: %u\n", curw.w, curw.h);
@@ -177,14 +210,14 @@ void rpi_lcd_set_address_window(u16 x0, u16 y0, u16 w, u16 h)
 	rpi_lcd_write_command(LCD_CASET);
 	{
 		uint8_t data[] = { (curw.x0 >> 8) & 0xFF, curw.x0 & 0xFF,
-				   (curw.x1 >> 8) & 0xFF, curw.x1 & 0xFF };
+			(curw.x1 >> 8) & 0xFF, curw.x1 & 0xFF };
 		rpi_lcd_write_data(data, sizeof(data));
 	}
 
 	rpi_lcd_write_command(LCD_RASET);
 	{
 		uint8_t data[] = { (curw.y0 >> 8) & 0xFF, curw.y0 & 0xFF,
-				   (curw.y1 >> 8) & 0xFF, curw.y1 & 0xFF };
+			(curw.y1 >> 8) & 0xFF, curw.y1 & 0xFF };
 		rpi_lcd_write_data(data, sizeof(data));
 	}
 
@@ -194,17 +227,17 @@ void rpi_lcd_set_address_window(u16 x0, u16 y0, u16 w, u16 h)
 static bool is_full_screen(struct window *w)
 {
 	return w->x0 == 0 && w->y0 == 0 && w->w == LCD_WIDTH &&
-	       w->h == LCD_HEIGHT;
+		w->h == LCD_HEIGHT;
 }
 
 void swap_full_screen(void)
 {
 	static struct window swapw = { .x0 = 0,
-				       .x1 = LCD_WIDTH - 1,
-				       .y0 = 0,
-				       .y1 = LCD_HEIGHT - 1,
-				       .w = LCD_WIDTH,
-				       .h = LCD_HEIGHT };
+		.x1 = LCD_WIDTH - 1,
+		.y0 = 0,
+		.y1 = LCD_HEIGHT - 1,
+		.w = LCD_WIDTH,
+		.h = LCD_HEIGHT };
 	struct window tempw;
 
 	if (is_full_screen(&curw) && is_full_screen(&swapw))
@@ -224,7 +257,7 @@ void rpi_lcd_full_update(void)
 }
 
 void rpi_lcd_put_char(u16 x, u16 y, char ch, FontDef font, u16 color,
-		      u16 bgcolor)
+		u16 bgcolor)
 {
 	u32 i, b, j;
 	for (i = 0; i < font.height; i++) {
@@ -232,11 +265,11 @@ void rpi_lcd_put_char(u16 x, u16 y, char ch, FontDef font, u16 color,
 		for (j = 0; j < font.width; j++) {
 			if ((b << j) & 0x8000) {
 				frame.buffer[(x + LCD_WIDTH * y) +
-					     (j + LCD_WIDTH * i)] =
+					(j + LCD_WIDTH * i)] =
 					(color >> 8) | (color << 8);
 			} else {
 				frame.buffer[(x + LCD_WIDTH * y) +
-					     (j + LCD_WIDTH * i)] =
+					(j + LCD_WIDTH * i)] =
 					(bgcolor >> 8) | (bgcolor << 8);
 			}
 		}
@@ -244,7 +277,7 @@ void rpi_lcd_put_char(u16 x, u16 y, char ch, FontDef font, u16 color,
 }
 
 void rpi_lcd_put_str(u16 x, u16 y, const char *str, FontDef font, u16 color,
-		     u16 bgcolor)
+		u16 bgcolor)
 {
 	while (*str) {
 		if (x + font.width >= LCD_WIDTH) {
@@ -267,7 +300,7 @@ void rpi_lcd_put_str(u16 x, u16 y, const char *str, FontDef font, u16 color,
 }
 
 static ssize_t data_write(struct file *file, const char *buf, size_t count,
-			  loff_t *ppos)
+		loff_t *ppos)
 {
 	int res;
 	int command = -1;
@@ -279,104 +312,104 @@ static ssize_t data_write(struct file *file, const char *buf, size_t count,
 	sscanf(command_buff, "%d:", &command);
 
 	switch (command) {
-	case DRAW_RECTANGLE: {
-		pr_info("DRAW_RECTANGLE\n");
-		res = sscanf(command_buff, "%d:%hu|%hu|%hu|%hu|%hu", &command,
-			     &x0, &y0, &w, &h, &color);
-		pr_info("%s[]%d\n", command_buff, res);
-		if (res == 5 + 1)
-			pr_info("x0: %hu, y0: %hu, w: %hu, h: %hu, c: %hu", x0,
-				y0, w, h, color);
-		rpi_lcd_fill_rectangle(x0, y0, w, h, color);
-		break;
-	}
-	case DRAW_BALL: {
-		pr_info("DRAW_BALL\n");
-		res = sscanf(command_buff, "%d:%hu|%hu|%hu", &command, &x0, &y0,
-			     &color);
-		if (res == 3 + 1) {
-			rpi_lcd_put_char(x0, y0, ' ', Ball_16x16, color,
-					 COLOR_BLACK);
-		}
-		break;
-	}
+		case DRAW_RECTANGLE: {
+					     pr_info("DRAW_RECTANGLE\n");
+					     res = sscanf(command_buff, "%d:%hu|%hu|%hu|%hu|%hu", &command,
+							     &x0, &y0, &w, &h, &color);
+					     pr_info("%s[]%d\n", command_buff, res);
+					     if (res == 5 + 1)
+						     pr_info("x0: %hu, y0: %hu, w: %hu, h: %hu, c: %hu", x0,
+								     y0, w, h, color);
+					     rpi_lcd_fill_rectangle(x0, y0, w, h, color);
+					     break;
+				     }
+		case DRAW_BALL: {
+					pr_info("DRAW_BALL\n");
+					res = sscanf(command_buff, "%d:%hu|%hu|%hu", &command, &x0, &y0,
+							&color);
+					if (res == 3 + 1) {
+						rpi_lcd_put_char(x0, y0, ' ', Ball_16x16, color,
+								COLOR_BLACK);
+					}
+					break;
+				}
 
-	case SET_WINDOW: {
-		pr_info("SET_WINDOW\n");
-		res = sscanf(command_buff, "%d:%hu|%hu|%hu|%hu", &command, &x0,
-			     &y0, &w, &h);
-		if (res == 4 + 1)
-			rpi_lcd_set_address_window(x0, y0, w, h);
-		break;
-	}
+		case SET_WINDOW: {
+					 pr_info("SET_WINDOW\n");
+					 res = sscanf(command_buff, "%d:%hu|%hu|%hu|%hu", &command, &x0,
+							 &y0, &w, &h);
+					 if (res == 4 + 1)
+						 rpi_lcd_set_address_window(x0, y0, w, h);
+					 break;
+				 }
 
-	case RENDER: {
-		pr_info("RENDER\n");
-		res = sscanf(command_buff, "%d:%hu", &command, &x0);
-		if (res == 1 + 1) {
-			if (x0 == 0)
-				rpi_lcd_full_update();
-			else
-				rpi_lcd_fast_update();
-		}
-		break;
-	}
-	default:
-		pr_info("Wrong command  %d\n", lcd_command);
+		case RENDER: {
+				     pr_info("RENDER\n");
+				     res = sscanf(command_buff, "%d:%hu", &command, &x0);
+				     if (res == 1 + 1) {
+					     if (x0 == 0)
+						     rpi_lcd_full_update();
+					     else
+						     rpi_lcd_fast_update();
+				     }
+				     break;
+			     }
+		default:
+			     pr_info("Wrong command  %d\n", lcd_command);
 	}
 	return count;
 }
 
 static init_step software_reset = { .cmd = 0x01,
-				    .delay = 1000,
-				    .data = count_data() };
+	.delay = 1000,
+	.data = count_data() };
 
 static init_step power_control_a = { .cmd = 0xCB,
-				     .delay = 0,
-				     .data = count_data(0x39, 0x2C, 0x00, 0x34,
-							0x02) };
+	.delay = 0,
+	.data = count_data(0x39, 0x2C, 0x00, 0x34,
+			0x02) };
 
 static init_step power_control_b = { .cmd = 0xCF,
-				     .delay = 0,
-				     .data = count_data(0x00, 0xC1, 0x30) };
+	.delay = 0,
+	.data = count_data(0x00, 0xC1, 0x30) };
 
 static init_step driver_timing_control_a = { .cmd = 0xE8,
-					     .delay = 0,
-					     .data = count_data(0x85, 0x00,
-								0x78) };
+	.delay = 0,
+	.data = count_data(0x85, 0x00,
+			0x78) };
 
 static init_step driver_timing_control_b = { .cmd = 0xEA,
-					     .delay = 0,
-					     .data = count_data(0x00, 0x00) };
+	.delay = 0,
+	.data = count_data(0x00, 0x00) };
 
 static init_step power_on_sequence_control = { .cmd = 0xED,
-					       .delay = 0,
-					       .data = count_data(0x64, 0x03,
-								  0x12, 0x81) };
+	.delay = 0,
+	.data = count_data(0x64, 0x03,
+			0x12, 0x81) };
 
 static init_step pump_ratio_control = { .cmd = 0xF7,
-					.delay = 0,
-					.data = count_data(0x20) };
+	.delay = 0,
+	.data = count_data(0x20) };
 
 static init_step power_control_vrh = { .cmd = 0xC0,
-				       .delay = 0,
-				       .data = count_data(0x23) };
+	.delay = 0,
+	.data = count_data(0x23) };
 
 static init_step power_control_sap = { .cmd = 0xC1,
-				       .delay = 0,
-				       .data = count_data(0x10) };
+	.delay = 0,
+	.data = count_data(0x10) };
 
 static init_step vcm_control = { .cmd = 0xC5,
-				 .delay = 0,
-				 .data = count_data(0x3E, 0x28) };
+	.delay = 0,
+	.data = count_data(0x3E, 0x28) };
 
 static init_step vcm_control_2 = { .cmd = 0xC7,
-				   .delay = 0,
-				   .data = count_data(0x86) };
+	.delay = 0,
+	.data = count_data(0x86) };
 
 static init_step pixel_format = { .cmd = 0x3A,
-				  .delay = 0,
-				  .data = count_data(0x55) };
+	.delay = 0,
+	.data = count_data(0x55) };
 
 static init_step frame_ratio_control_standard_rgb_color = {
 	.cmd = 0xB1,
@@ -385,65 +418,65 @@ static init_step frame_ratio_control_standard_rgb_color = {
 };
 
 static init_step display_function_control = { .cmd = 0xB6,
-					      .delay = 0,
-					      .data = count_data(0x08, 0x82,
-								 0x27) };
+	.delay = 0,
+	.data = count_data(0x08, 0x82,
+			0x27) };
 
 static init_step gamma_function_disable = { .cmd = 0xF2,
-					    .delay = 0,
-					    .data = count_data(0x00) };
+	.delay = 0,
+	.data = count_data(0x00) };
 
 static init_step gamma_curve_selected = { .cmd = 0x26,
-					  .delay = 0,
-					  .data = count_data(0x01) };
+	.delay = 0,
+	.data = count_data(0x01) };
 
 static init_step positive_gamma_correction = {
 	.cmd = 0xE0,
 	.delay = 0,
 	.data = count_data(0x0F, 0x31, 0x2B, 0x0C, 0x0E, 0x08, 0x4E, 0xF1, 0x37,
-			   0x07, 0x10, 0x03, 0x0E, 0x09, 0x00)
+			0x07, 0x10, 0x03, 0x0E, 0x09, 0x00)
 };
 
 static init_step negative_gamma_correction = {
 	.cmd = 0xE1,
 	.delay = 0,
 	.data = count_data(0x00, 0x0E, 0x14, 0x03, 0x11, 0x07, 0x31, 0xC1, 0x48,
-			   0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F)
+			0x08, 0x0F, 0x0C, 0x31, 0x36, 0x0F)
 };
 
 static init_step exit_sleep = { .cmd = 0x11,
-				.delay = 120,
-				.data = count_data() };
+	.delay = 120,
+	.data = count_data() };
 
 static init_step turn_on_display = { .cmd = 0x29,
-				     .delay = 0,
-				     .data = count_data() };
+	.delay = 0,
+	.data = count_data() };
 
 static init_step memory_access_control = { .cmd = 0x36,
-					   .delay = 0,
-					   .data = count_data(0x28) };
+	.delay = 0,
+	.data = count_data(0x28) };
 
 static init_step *init_seq[] = { &software_reset,
-				 &power_control_a,
-				 &power_control_b,
-				 &driver_timing_control_a,
-				 &driver_timing_control_b,
-				 &power_on_sequence_control,
-				 &pump_ratio_control,
-				 &power_control_vrh,
-				 &power_control_sap,
-				 &vcm_control,
-				 &vcm_control_2,
-				 &pixel_format,
-				 &frame_ratio_control_standard_rgb_color,
-				 &display_function_control,
-				 &gamma_function_disable,
-				 &gamma_curve_selected,
-				 &positive_gamma_correction,
-				 &negative_gamma_correction,
-				 &exit_sleep,
-				 &turn_on_display,
-				 &memory_access_control };
+	&power_control_a,
+	&power_control_b,
+	&driver_timing_control_a,
+	&driver_timing_control_b,
+	&power_on_sequence_control,
+	&pump_ratio_control,
+	&power_control_vrh,
+	&power_control_sap,
+	&vcm_control,
+	&vcm_control_2,
+	&pixel_format,
+	&frame_ratio_control_standard_rgb_color,
+	&display_function_control,
+	&gamma_function_disable,
+	&gamma_curve_selected,
+	&positive_gamma_correction,
+	&negative_gamma_correction,
+	&exit_sleep,
+	&turn_on_display,
+	&memory_access_control };
 
 static const u8 CMD_NUM = sizeof(init_seq) / sizeof(init_step *);
 
@@ -458,14 +491,14 @@ static void rpi_lcd_display_init(void)
 		rpi_lcd_write_command(init_seq[seq_ind]->cmd);
 		if (data_num)
 			rpi_lcd_write_data(&init_seq[seq_ind]->data[1],
-					   data_num);
+					data_num);
 		if (init_seq[seq_ind]->delay)
 			mdelay(init_seq[seq_ind]->delay);
 #ifdef DEBUG
 		pr_info("%u. CMD: %x\n", seq_ind + 1, init_seq[seq_ind]->cmd);
 		for (data_ind = 1; data_ind < data_num + 1; ++data_ind)
 			pr_info("\t%u. DATA: %x\n", data_ind,
-				init_seq[seq_ind]->data[data_ind]);
+					init_seq[seq_ind]->data[data_ind]);
 #endif
 	}
 }
@@ -531,32 +564,42 @@ static void rpi_lcd_spi_free(void)
 		spi_unregister_device(rpi_lcd_spi_device);
 }
 
-int init_module(void)
-{
-	int ret = 0;
+int init_module(void)                                                           
+{                                                                               
+	int ret = 0;                                                            
 
-	if ((ret = rpi_lcd_spi_init()))
-		goto end;
-	if ((ret = dev_init()))
-		goto end;
-	rpi_lcd_gpio_init();
-	rpi_lcd_display_init();
+	if (!(frame.buffer = kzalloc(FB_PAGES*4096, GFP_KERNEL))) {             
+		ret = -1;                                                       
+		goto end;                                                       
+	}                                                                       
+	if ((ret = rpi_lcd_spi_init()))                                         
+		goto err;                                                       
+	if ((ret = dev_init()))                                                 
+		goto err;                                                       
+	rpi_lcd_gpio_init();                                                    
+	rpi_lcd_display_init();                                                 
 
-	rpi_lcd_set_address_window(0, 0, LCD_WIDTH, LCD_HEIGHT);
-	rpi_lcd_fill_screen(COLOR_RED);
-	rpi_lcd_full_update();
+	rpi_lcd_set_address_window(0, 0, LCD_WIDTH, LCD_HEIGHT);                
+	rpi_lcd_fill_screen(COLOR_MAGENTA);                                     
+	rpi_lcd_full_update();                                                  
 
-	pr_info(debug_tag "Module initialized successfully\n");
-end:
-	return ret;
-}
+	pr_info(debug_tag "Module initialized successfully\n");                 
+	return ret;                                                             
+err:                                                                            
+	kfree(frame.buffer);                                                    
+end:                                                                            
+	return ret;                                                             
 
-void cleanup_module(void)
-{
-	rpi_lcd_fill_screen(COLOR_WHITE);
-	rpi_lcd_full_update();
-	dev_exit();
-	rpi_lcd_gpio_free();
-	rpi_lcd_spi_free();
-	pr_info(debug_tag "Module cleaned-up\n");
-}
+}                                                                               
+
+void cleanup_module(void)                                                       
+{                                                                               
+	rpi_lcd_fill_screen(COLOR_WHITE);                                       
+	rpi_lcd_full_update();                                                  
+	dev_exit();                                                             
+	rpi_lcd_gpio_free();                                                    
+	rpi_lcd_spi_free();                                                     
+	kfree(frame.buffer);                                                    
+	pr_info(debug_tag "Module cleaned-up\n");                               
+}                                                                               
+

@@ -15,6 +15,14 @@ tree:
 rm:
 	sudo rmmod $(TARGET)
 
+
+app:                                                            
+	@sudo dmesg -C                                          
+	@$(CC) src/main.c -o app                                
+	@-sudo ./app img/romashki.raw img/autumn.raw img/fractal.raw img/sea.raw
+	@rm app                                                 
+	@dmesg                                                  
+
 ins:
 	sudo insmod $(TARGET).ko
 

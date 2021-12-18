@@ -18,6 +18,8 @@
 #define COLOR_COLOR565(r, g, b)                                                \
 	(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | ((b & 0xF8) >> 3))
 
+#define FB_PAGES ((LCD_WIDTH * LCD_HEIGHT * 2)/4096 +  !!((LCD_WIDTH * LCD_HEIGHT * 2)/4096))
+
 // User commands
 enum lcd_commands {
 	NONE,

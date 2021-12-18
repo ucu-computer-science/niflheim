@@ -29,7 +29,7 @@ typedef struct {
 	size_t size;
 	u16 n_rows;
 	u16 n_cols;
-	pixel_t buffer[LCD_WIDTH * LCD_HEIGHT];
+	pixel_t *buffer;
 	pixel_t unraveled[LCD_WIDTH * LCD_HEIGHT];
 } lcd_frame;
 
