@@ -19,7 +19,7 @@ rm:
 app:                                                            
 	@sudo dmesg -C                                          
 	@$(CC) src/main.c -o app                                
-	@-sudo ./app img/romashki.raw img/autumn.raw img/fractal.raw img/sea.raw
+	@-sudo ./app img/dog.raw img/romashki.raw img/autumn.raw img/fractal.raw img/sea.raw img/meme.raw 	
 	@rm app                                                 
 	@dmesg                                                  
 
