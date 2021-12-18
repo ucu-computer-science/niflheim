@@ -29,3 +29,6 @@ Presentations:
 
 Demos:
 - ![Version.1](media/Version.1.mp4)
+
+## References
+- Datasheet -- ![ILI9341](https://cdn-shop.adafruit.com/datasheets/ILI9341.pdf)
